@@ -9,9 +9,9 @@ export interface ComposeOptions {
 }
 
 export const SIZE_PRESETS = [
-  { label: '2048 × 1152（VRChat上限内で最大）', width: 2048, height: 1152 },
-  { label: '1920 × 1080（フルHD）', width: 1920, height: 1080 },
-  { label: '1280 × 720（HD・軽量）', width: 1280, height: 720 },
+  { label: '2048 × 1152', hint: 'VRChat 上限内で最大', width: 2048, height: 1152 },
+  { label: '1920 × 1080', hint: 'フル HD', width: 1920, height: 1080 },
+  { label: '1280 × 720', hint: '軽量', width: 1280, height: 720 },
 ] as const
 
 /** VRChat にアップロードできる最大辺 */
