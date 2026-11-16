@@ -6,9 +6,10 @@ import {
   compose,
   loadBitmap,
   outputName,
-  type Background,
+  isPortrait,
   type ComposeOptions,
   type OutputFormat,
+  type RotateDir,
 } from './compose'
 
 interface Item {
@@ -17,11 +18,7 @@ interface Item {
   bitmap: ImageBitmap
   url?: string
   blob?: Blob
-  drawWidth?: number
-  drawHeight?: number
 }
-
-const COLOR_SWATCHES = ['#000000', '#ffffff', '#1c1c22', '#f4b8c8', '#bfe3ff']
 
 function formatBytes(n: number) {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
@@ -31,12 +28,7 @@ function formatBytes(n: number) {
 export default function App() {
   const [items, setItems] = useState<Item[]>([])
   const [sizeIdx, setSizeIdx] = useState(0)
-  const [bgKind, setBgKind] = useState<Background['kind']>('color')
-  const [color, setColor] = useState('#000000')
-  const [blur, setBlur] = useState(40)
-  const [dim, setDim] = useState(0.35)
-  const [padding, setPadding] = useState(0)
-  const [allowUpscale, setAllowUpscale] = useState(true)
+  const [rotate, setRotate] = useState<RotateDir>('cw')
   const [format, setFormat] = useState<OutputFormat>('image/png')
   const [quality, setQuality] = useState(0.92)
   const [dragging, setDragging] = useState(false)
@@ -67,22 +59,16 @@ export default function App() {
   }, [])
 
   // 設定または画像が変わったら再合成
-  const settingsKey = JSON.stringify([sizeIdx, bgKind, color, blur, dim, padding, allowUpscale, format, quality])
+  const settingsKey = JSON.stringify([sizeIdx, rotate, format, quality])
   const idsKey = items.map((i) => i.id).join(',')
   useEffect(() => {
     let cancelled = false
     const timer = setTimeout(async () => {
-      const opts: ComposeOptions = {
-        width: size.width,
-        height: size.height,
-        padding,
-        allowUpscale,
-        background: bgKind === 'color' ? { kind: 'color', color } : { kind: 'blur', strength: blur, dim },
-      }
+      const opts: ComposeOptions = { width: size.width, height: size.height, rotate }
       const canvas = document.createElement('canvas')
       for (const item of itemsRef.current) {
         if (cancelled) return
-        const { drawWidth, drawHeight } = compose(canvas, item.bitmap, opts)
+        compose(canvas, item.bitmap, opts)
         const blob = await canvasToBlob(canvas, format, quality)
         if (cancelled) return
         const url = URL.createObjectURL(blob)
@@ -90,7 +76,7 @@ export default function App() {
           prev.map((p) => {
             if (p.id !== item.id) return p
             if (p.url) URL.revokeObjectURL(p.url)
-            return { ...p, url, blob, drawWidth, drawHeight }
+            return { ...p, url, blob }
           }),
         )
       }
@@ -142,7 +128,7 @@ export default function App() {
           VRC <span className="accent">16:9</span> Frame
         </h1>
         <p className="lead">
-          縦長や正方形の画像に枠をつけて 16:9 に。VRChat の上限（{VRC_MAX_EDGE}px）内に収めて書き出します。
+          縦長や正方形の画像に黒枠をつけて 16:9 に。縦長の画像は横向きに回転します。VRChat の上限（{VRC_MAX_EDGE}px）内に収めて書き出します。
           <br />
           画像はブラウザの中だけで処理され、どこにも送信されません。
         </p>
@@ -161,68 +147,16 @@ export default function App() {
           </section>
 
           <section>
-            <h2>背景</h2>
+            <h2>縦長画像の回転</h2>
             <div className="seg">
-              <button className={bgKind === 'color' ? 'on' : ''} onClick={() => setBgKind('color')}>
-                単色
+              <button className={rotate === 'cw' ? 'on' : ''} onClick={() => setRotate('cw')}>
+                右に90°
               </button>
-              <button className={bgKind === 'blur' ? 'on' : ''} onClick={() => setBgKind('blur')}>
-                ぼかし
+              <button className={rotate === 'ccw' ? 'on' : ''} onClick={() => setRotate('ccw')}>
+                左に90°
               </button>
             </div>
-            {bgKind === 'color' ? (
-              <div className="swatches">
-                {COLOR_SWATCHES.map((c) => (
-                  <button
-                    key={c}
-                    className={`swatch ${color === c ? 'on' : ''}`}
-                    style={{ background: c }}
-                    aria-label={c}
-                    onClick={() => setColor(c)}
-                  />
-                ))}
-                <label className="swatch custom" title="好きな色">
-                  <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
-                </label>
-              </div>
-            ) : (
-              <>
-                <label className="range">
-                  ぼかしの強さ <span>{blur}</span>
-                  <input type="range" min={5} max={100} value={blur} onChange={(e) => setBlur(+e.target.value)} />
-                </label>
-                <label className="range">
-                  暗さ <span>{Math.round(dim * 100)}%</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={0.8}
-                    step={0.05}
-                    value={dim}
-                    onChange={(e) => setDim(+e.target.value)}
-                  />
-                </label>
-              </>
-            )}
-          </section>
-
-          <section>
-            <h2>配置</h2>
-            <label className="range">
-              余白 <span>{Math.round(padding * 100)}%</span>
-              <input
-                type="range"
-                min={0}
-                max={0.2}
-                step={0.01}
-                value={padding}
-                onChange={(e) => setPadding(+e.target.value)}
-              />
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={allowUpscale} onChange={(e) => setAllowUpscale(e.target.checked)} />
-              小さい画像は拡大して枠いっぱいにする
-            </label>
+            <p className="note">縦長の画像は自動で横向きにしてから、黒背景の 16:9 に配置します。</p>
           </section>
 
           <section>
@@ -310,7 +244,8 @@ export default function App() {
                     {item.file.name}
                   </div>
                   <div className="meta">
-                    {item.bitmap.width}×{item.bitmap.height} → {size.width}×{size.height}
+                    {item.bitmap.width}×{item.bitmap.height}
+                    {isPortrait(item.bitmap) && <>（{rotate === 'cw' ? '右' : '左'}に回転）</>} → {size.width}×{size.height}
                     {item.blob && <> ・ {formatBytes(item.blob.size)}</>}
                   </div>
                   <div className="actions">
