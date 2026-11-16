@@ -264,7 +264,7 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        <a href="https://github.com/abemaru/vrc-169-frame" target="_blank" rel="noreferrer">
+        <a href="https://github.com/abemaru/169-frame" target="_blank" rel="noreferrer">
           GitHub
         </a>
       </footer>
